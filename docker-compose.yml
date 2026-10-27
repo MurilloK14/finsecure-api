@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: finsecure-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: finsecure_db
+      POSTGRES_USER: finsecure_user
+      POSTGRES_PASSWORD: finsecure_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
