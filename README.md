@@ -3,17 +3,18 @@
 ![Java 21](https://img.shields.io/badge/Java-21-orange?style=for-the-badge&logo=openjdk)
 ![Spring Boot 3.4](https://img.shields.io/badge/Spring%20Boot-3.4.4-brightgreen?style=for-the-badge&logo=springboot)
 ![PostgreSQL 17](https://img.shields.io/badge/PostgreSQL-17-blue?style=for-the-badge&logo=postgresql)
+![RabbitMQ](https://img.shields.io/badge/RabbitMQ-3.13-FF6600?style=for-the-badge&logo=rabbitmq&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Enabled-2496ED?style=for-the-badge&logo=docker)
 ![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)
 
 > **FinSecure API** é uma engine de pagamentos e carteira digital de alta concorrência desenvolvida sob os padrões mais rigorosos do mercado financeiro e de segurança de aplicações (**AppSec**). 
-> O sistema implementa garantias estritas de transações **ACID**, prevenção contra **Double Spending (Race Conditions)**, imunidade matemática a **Deadlocks**, proteção contra ataques de repetição via **Idempotência**, segurança **Stateless com JWT**, e **Trilha de Auditoria Imutável**.
+> O sistema implementa garantias estritas de transações **ACID**, prevenção contra **Double Spending (Race Conditions)**, imunidade matemática a **Deadlocks**, proteção contra ataques de repetição via **Idempotência**, segurança **Stateless com JWT**, **Trilha de Auditoria Imutável**, e uma **Arquitetura Orientada a Eventos (EDA)** desacoplada com **RabbitMQ** e resiliência via **Dead Letter Queue (DLQ)**.
 
 ---
 
 ## 🎯 Arquitetura & Engenharia de Concorrência
 
-Em ecossistemas de pagamentos (fintechs e adquirentes), falhas de concorrência resultam em prejuízo financeiro direto. Esta API foi desenhada com decisões arquiteturais deliberadas para mitigar os riscos mais críticos da indústria:
+Em ecossistemas de pagamentos (fintechs e adquirentes), falhas de concorrência e acoplamento síncrono resultam em prejuízo financeiro e indisponibilidade. Esta API foi desenhada com decisões arquiteturais deliberadas para mitigar os riscos mais críticos da indústria:
 
 ```mermaid
 sequenceDiagram
@@ -24,6 +25,9 @@ sequenceDiagram
     participant Repo as WalletRepository
     participant DB as PostgreSQL 17 (ACID)
     participant Audit as AuditLogRepository
+    participant MQ as RabbitMQ (Exchange)
+    participant Cons as NotificationConsumer
+    participant DLQ as Dead Letter Queue (DLQ)
 
     Client->>Ctrl: POST /api/v1/transfers (Bearer JWT + Payload)
     Note over Ctrl: Prevenção de IDOR: Remetente extraído do JWT (@AuthenticationPrincipal)
@@ -46,7 +50,20 @@ sequenceDiagram
         Svc->>Svc: debit(sender, amount) & credit(receiver, amount)
         Svc->>DB: Salvar Transação (Status: COMPLETED)
         Svc->>Audit: Registrar Trilha de Auditoria Imutável
-        DB-->>Client: 200 OK (TransferResponseDTO)
+        DB-->>Svc: Commit da Transação Atômica
+        
+        Note over Svc,MQ: Desacoplamento Assíncrono (EDA)
+        Svc->>MQ: Publicar TransactionNotificationEvent (finsecure.events.exchange)
+        Svc-->>Client: 200 OK (TransferResponseDTO)
+        
+        MQ->>Cons: Entrega mensagem (finsecure.transaction-notification.queue)
+        alt Processamento com Sucesso
+            Cons->>Cons: Enviar Comprovante / Push / E-mail
+            Cons-->>MQ: ACK (Mensagem concluída)
+        else Falha após 3 Retries (Backoff Exponencial)
+            Note over Cons,DLQ: Resiliência & Zero Data Loss
+            Cons->>DLQ: Roteamento via DLX para finsecure.transaction-notification.dlq
+        end
     end
 ```
 
@@ -61,6 +78,17 @@ sequenceDiagram
 ### 3. Proteção contra Repetições (Idempotência Estrita)
 * **Problema:** Instabilidades de rede podem fazer com que um cliente reenvie a mesma solicitação de transferência, gerando cobranças duplicadas.
 * **Solução:** Cada transação exige um cabeçalho/campo `idempotencyKey` (UUIDv4) com *Unique Constraint* no banco de dados e checagem *fail-fast* no Service.
+
+---
+
+## 📨 Mensageria Assíncrona & Resiliência AMQP (RabbitMQ)
+
+Para garantir alta disponibilidade e tempos de resposta na ordem de milissegundos, o processamento de comprovantes e notificações foi completamente desacoplado da transação financeira através do **RabbitMQ**:
+
+* **Desacoplamento Temporal e de Falhas:** A transferência é confirmada para o cliente imediatamente após o commit no banco de dados. Caso serviços de terceiros (provedores de e-mail, SMS ou gateways de push) fiquem indisponíveis, a transação financeira **não sofre rollback**.
+* **Serialização JSON Segura:** DTOs/Records imutáveis (`TransactionNotificationEvent`) serializados via `Jackson2JsonMessageConverter` em formato UTF-8 padronizado.
+* **Política de Retentativas com Backoff Exponencial:** O consumidor tenta processar a mensagem até 3 vezes (com intervalos de 1s, 2s e 4s), absorvendo oscilações transitórias de rede.
+* **Dead Letter Exchange (DLX) & Dead Letter Queue (DLQ):** Caso a falha persista após as tentativas, o `RepublishMessageRecoverer` intercepta a mensagem e a roteia para a fila `finsecure.transaction-notification.dlq`, anexando cabeçalhos de diagnóstico (`x-exception-message`, `x-exception-stacktrace`, `x-original-exchange`), garantindo **Zero Perda de Dados** e rastreabilidade para auditoria técnica.
 
 ---
 
@@ -126,8 +154,8 @@ O projeto adota a pirâmide de testes para garantir robustez e performance:
 ```
 
 * **Testes de Isolamento com Mockito:** Cobertura de regras críticas de negócio (débito, crédito, validação de saldo insuficiente, idempotência duplicada e cadastro de duplicados).
-* **Verificação de Efeitos Colaterais:** Testes com asserções estritas que garantem que, em caso de saldo insuficiente, nenhuma entidade é salva (`verify(..., never()).save(...)`).
-* **Testes de Contexto Spring Boot:** Validação do ciclo de vida das entidades e injeção de dependências (`@SpringBootTest`).
+* **Verificação de Efeitos Colaterais:** Testes com asserções estritas que garantem que, em caso de saldo insuficiente, nenhuma entidade é salva e nenhum evento é publicado (`verify(..., never()).convertAndSend(...)`).
+* **Testes de Contexto Spring Boot:** Validação do ciclo de vida das entidades, injeção de dependências e conectividade com infraestrutura (`@SpringBootTest`).
 
 ---
 
@@ -138,14 +166,13 @@ O projeto adota a pirâmide de testes para garantir robustez e performance:
 * **Docker** e **Docker Compose**
 * **Maven** (ou use o wrapper incluso `./mvnw`)
 
-### 1. Iniciar o Banco de Dados PostgreSQL 17 via Docker
+### 1. Iniciar a Infraestrutura (PostgreSQL 17 + RabbitMQ) via Docker Compose
 ```bash
-docker run --name finsecure-postgres \
-  -e POSTGRES_DB=finsecure_db \
-  -e POSTGRES_USER=finsecure_user \
-  -e POSTGRES_PASSWORD=finsecure_password \
-  -p 5432:5432 -d postgres:17-alpine
+docker compose up -d
 ```
+* **PostgreSQL:** `localhost:5432` (database: `finsecure_db`)
+* **RabbitMQ AMQP:** `localhost:5672`
+* **RabbitMQ Management UI:** `http://localhost:15672` (Usuário: `finsecure_user` | Senha: `finsecure_password`)
 
 ### 2. Compilar e Iniciar a Aplicação
 ```bash
