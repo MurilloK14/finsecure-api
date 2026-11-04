@@ -1,5 +1,6 @@
 # 💳 FinSecure API — Digital Wallet & Resilient Payment Gateway
 
+[![CI Pipeline](https://img.shields.io/github/actions/workflow/status/MurilloK14/finsecure-api/ci.yml?branch=main&label=CI%20Pipeline&style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/MurilloK14/finsecure-api/actions/workflows/ci.yml)
 ![Java 21](https://img.shields.io/badge/Java-21-orange?style=for-the-badge&logo=openjdk)
 ![Spring Boot 3.4](https://img.shields.io/badge/Spring%20Boot-3.4.4-brightgreen?style=for-the-badge&logo=springboot)
 ![PostgreSQL 17](https://img.shields.io/badge/PostgreSQL-17-blue?style=for-the-badge&logo=postgresql)

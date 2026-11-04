@@ -1,0 +1,59 @@
+name: FinSecure CI Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: finsecure_db
+          POSTGRES_USER: finsecure_user
+          POSTGRES_PASSWORD: finsecure_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      rabbitmq:
+        image: rabbitmq:3-management-alpine
+        env:
+          RABBITMQ_DEFAULT_USER: finsecure_user
+          RABBITMQ_DEFAULT_PASS: finsecure_password
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmqctl status"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: 1. Fazer checkout do código
+        uses: actions/checkout@v4
+
+      - name: 2. Configurar o Java 21 (Eclipse Temurin) com Cache do Maven
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: 3. Dar permissão de execução ao Maven Wrapper
+        run: chmod +x mvnw
+
+      - name: 4. Executar suíte completa de testes automatizados
+        run: ./mvnw clean test
+
+      - name: 5. Validar o build da imagem Docker (Multi-Stage)
+        run: docker build -t finsecure-api:ci .
