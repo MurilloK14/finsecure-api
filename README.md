@@ -164,20 +164,26 @@ O projeto adota a pirâmide de testes para garantir robustez e performance:
 ## ⚙️ Como Executar o Projeto Localmente
 
 ### Pré-requisitos
-* **Java 21** (OpenJDK)
-* **Docker** e **Docker Compose**
-* **Maven** (ou use o wrapper incluso `./mvnw`)
+* **Docker** e **Docker Compose**  
+*(Java 21 e Maven são opcionais caso execute diretamente via Docker!)*
 
-### 1. Iniciar a Infraestrutura (PostgreSQL 17 + RabbitMQ) via Docker Compose
+### 1. Execução Total via Docker Compose (Modo Conteinerizado)
+Suba o ecossistema completo (FinSecure API + PostgreSQL 17 + RabbitMQ 3) com um único comando:
 ```bash
-docker compose up -d
+docker compose up --build -d
 ```
+* **API & Swagger UI:** `http://localhost:8080/swagger-ui.html`
 * **PostgreSQL:** `localhost:5432` (database: `finsecure_db`)
 * **RabbitMQ AMQP:** `localhost:5672`
 * **RabbitMQ Management UI:** `http://localhost:15672` (Usuário: `finsecure_user` | Senha: `finsecure_password`)
 
-### 2. Compilar e Iniciar a Aplicação
+### 2. Modo Híbrido / Desenvolvimento Local (IntelliJ IDEA)
+Caso deseje depurar e alterar o código localmente no IntelliJ:
 ```bash
+# 1. Inicie apenas a infraestrutura externa
+docker compose up postgres rabbitmq -d
+
+# 2. Execute a aplicação via wrapper ou IntelliJ:
 # No Linux/macOS:
 ./mvnw clean spring-boot:run
 
