@@ -4,6 +4,7 @@
 ![Spring Boot 3.4](https://img.shields.io/badge/Spring%20Boot-3.4.4-brightgreen?style=for-the-badge&logo=springboot)
 ![PostgreSQL 17](https://img.shields.io/badge/PostgreSQL-17-blue?style=for-the-badge&logo=postgresql)
 ![RabbitMQ](https://img.shields.io/badge/RabbitMQ-3.13-FF6600?style=for-the-badge&logo=rabbitmq&logoColor=white)
+![Bucket4j](https://img.shields.io/badge/Bucket4j-Rate%20Limiting-red?style=for-the-badge)
 ![Docker](https://img.shields.io/badge/Docker-Enabled-2496ED?style=for-the-badge&logo=docker)
 ![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)
 
@@ -94,6 +95,7 @@ Para garantir alta disponibilidade e tempos de resposta na ordem de milissegundo
 
 ## 🛡️ Segurança de Aplicações (AppSec) & Validações
 
+* **Rate Limiting & Defesa contra Brute-Force / DoS (Token Bucket):** Implementação lock-free de alto desempenho com **Bucket4j** integrada à `SecurityFilterChain` (`RateLimitFilter`). Protege endpoints críticos de autenticação contra ataques de força bruta e exaustão de CPU por BCrypt (limite estrito de 5 req/min por IP em `/auth/login`), e blinda transferências contra abusos (10 req/min por usuário autenticado), retornando `HTTP 429 Too Many Requests` com cabeçalho `Retry-After` e payload explicativo.
 * **Prevenção contra IDOR (Insecure Direct Object Reference):** O ID da carteira de origem **nunca** é enviado no corpo da requisição. O sistema recupera a identidade autenticada diretamente do token criptográfico (`@AuthenticationPrincipal User currentUser`), impedindo que um invasor debite da carteira de terceiros.
 * **Validação Criptográfica e Pure CPU Modulo 11:** Anotação personalizada `@CpfOrCnpj` com validador estrito dos dígitos verificadores via Algoritmo Módulo 11, rejeitando entradas malformadas antes de tocar o banco de dados.
 * **Autenticação Stateless (JWT):** Assinatura HMAC-SHA256 (`jjwt 0.12.6`) com tempo de expiração curto e filtros de segurança (`JwtAuthenticationFilter`) integrados à `SecurityFilterChain` do Spring Security 6.
