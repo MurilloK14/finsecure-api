@@ -1,0 +1,9 @@
+global:
+  scrape_interval: 5s     # Coleta métricas da API a cada 5 segundos
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: 'finsecure-api'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['api:8080']  # Usa o nome do container da API na rede do Docker

@@ -6,6 +6,8 @@
 ![PostgreSQL 17](https://img.shields.io/badge/PostgreSQL-17-blue?style=for-the-badge&logo=postgresql)
 ![RabbitMQ](https://img.shields.io/badge/RabbitMQ-3.13-FF6600?style=for-the-badge&logo=rabbitmq&logoColor=white)
 ![Bucket4j](https://img.shields.io/badge/Bucket4j-Rate%20Limiting-red?style=for-the-badge)
+![Prometheus](https://img.shields.io/badge/Prometheus-E6522C?style=for-the-badge&logo=prometheus&logoColor=white)
+![Grafana](https://img.shields.io/badge/Grafana-F46800?style=for-the-badge&logo=grafana&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Enabled-2496ED?style=for-the-badge&logo=docker)
 ![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)
 
@@ -166,6 +168,16 @@ k6 run load-tests/transfer-concurrency-stress.js
 
 ---
 
+## 📊 Observabilidade em Tempo Real (Prometheus & Grafana)
+
+A saúde, performance e concorrência da aplicação são monitoradas ponta a ponta sem degradação de performance:
+
+* **Métricas via Spring Boot Actuator & Micrometer:** Exposição das métricas da JVM (Heap Memory, Garbage Collection, Threads), pool de conexões JDBC (**HikariCP**) e latência das rotas HTTP no endpoint `/actuator/prometheus`.
+* **Prometheus Time-Series DB:** Agente de coleta configurado com polling periódico a cada 5 segundos para reter séries temporais de tráfego.
+* **Grafana Dashboards:** Visualização gráfica interativa em tempo real com painéis para monitorar Throughput (req/s), latência $p95$ e consumo de conexões durante os testes de estresse (Dashboard ID recomendado: `19004`).
+
+---
+
 ## ⚙️ Como Executar o Projeto Localmente
 
 ### Pré-requisitos
@@ -173,7 +185,7 @@ k6 run load-tests/transfer-concurrency-stress.js
 *(Java 21 e Maven são opcionais caso execute diretamente via Docker!)*
 
 ### 1. Execução Total via Docker Compose (Modo Conteinerizado)
-Suba o ecossistema completo (FinSecure API + PostgreSQL 17 + RabbitMQ 3) com um único comando:
+Suba o ecossistema completo (FinSecure API + PostgreSQL 17 + RabbitMQ 3 + Prometheus + Grafana) com um único comando:
 ```bash
 docker compose up --build -d
 ```
@@ -181,6 +193,8 @@ docker compose up --build -d
 * **PostgreSQL:** `localhost:5432` (database: `finsecure_db`)
 * **RabbitMQ AMQP:** `localhost:5672`
 * **RabbitMQ Management UI:** `http://localhost:15672` (Usuário: `finsecure_user` | Senha: `finsecure_password`)
+* **Prometheus:** `http://localhost:9090`
+* **Grafana:** `http://localhost:3000` (Usuário: `admin` | Senha: `admin`)
 
 ### 2. Modo Híbrido / Desenvolvimento Local (IntelliJ IDEA)
 Caso deseje depurar e alterar o código localmente no IntelliJ:
