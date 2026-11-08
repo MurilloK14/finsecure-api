@@ -149,16 +149,20 @@ A documentação interativa completa pode ser acessada via **Swagger UI** em:
 
 ## 🧪 Estratégia de Testes Automatizados
 
-O projeto adota a pirâmide de testes para garantir robustez e performance:
+O projeto adota uma estratégia completa de testes unitários, integração e estresse de concorrência:
 
 ```bash
 # Executar suíte de testes unitários
-./mvnw test -Dtest="*ServiceTest"
+./mvnw test -Dtest="*ServiceTest,RateLimitFilterTest"
+
+# Executar testes de carga e estresse com K6
+k6 run load-tests/rate-limit-stress.js
+k6 run load-tests/transfer-concurrency-stress.js
 ```
 
 * **Testes de Isolamento com Mockito:** Cobertura de regras críticas de negócio (débito, crédito, validação de saldo insuficiente, idempotência duplicada e cadastro de duplicados).
-* **Verificação de Efeitos Colaterais:** Testes com asserções estritas que garantem que, em caso de saldo insuficiente, nenhuma entidade é salva e nenhum evento é publicado (`verify(..., never()).convertAndSend(...)`).
-* **Testes de Contexto Spring Boot:** Validação do ciclo de vida das entidades, injeção de dependências e conectividade com infraestrutura (`@SpringBootTest`).
+* **Testes de Rate Limiting:** Validação determinística de consumo de tokens por IP e bloqueio com HTTP 429 na 6ª tentativa.
+* **Testes de Carga Concorrente com K6:** Simulação de múltiplos usuários virtuais (VUs) executando transferências simultâneas com validação de zero double-spending e imunidade a deadlocks.
 
 ---
 
