@@ -124,6 +124,19 @@
 			<scope>test</scope>
 		</dependency>
 
+		<!-- Spring Data Redis (com driver Lettuce gerenciado pelo Spring Boot) -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-redis</artifactId>
+		</dependency>
+
+		<!-- Bucket4j extension para Lettuce (Rate Limit Distribuído) -->
+		<dependency>
+			<groupId>com.bucket4j</groupId>
+			<artifactId>bucket4j_jdk17-lettuce</artifactId>
+			<version>8.21.0</version>
+		</dependency>
+
 	</dependencies>
 
 	<build>

@@ -2,35 +2,46 @@ package com.murillo.finsecure_api.security.ratelimit;
 
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
-import io.github.bucket4j.Refill;
+import io.github.bucket4j.BucketConfiguration;
+import io.github.bucket4j.distributed.proxy.ProxyManager;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class RateLimitService {
-    private final Map<String, Bucket> bucket = new ConcurrentHashMap<>();
 
+    private final ProxyManager<String> proxyManager;
 
-    public Bucket resolveBucket(String key, RateLimitType type) {
-        return bucket.computeIfAbsent(key, k -> createNewBucket(type));
+    public RateLimitService(ProxyManager<String> proxyManager) {
+        this.proxyManager = proxyManager;
     }
 
-    private Bucket createNewBucket(RateLimitType type) {
-        return switch (type){
-            case AUTH_LOGIN -> Bucket.builder()
-                    .addLimit(Bandwidth.classic(5, Refill.intervally(5, Duration.ofMinutes(1))))
+    public Bucket resolveBucket(String key, RateLimitType type) {
+        return proxyManager.builder().build("ratelimit:" + key, () -> createBucketConfiguration(type));
+    }
+
+    private BucketConfiguration createBucketConfiguration(RateLimitType type) {
+        Bandwidth limit = switch (type) {
+            case AUTH_LOGIN -> Bandwidth.builder()
+                    .capacity(5)
+                    .refillIntervally(5, Duration.ofMinutes(1))
                     .build();
 
-            case TRANSFER -> Bucket.builder()
-                    .addLimit(Bandwidth.classic(10, Refill.intervally(10, Duration.ofMinutes(1))))
+            case TRANSFER -> Bandwidth.builder()
+                    .capacity(10)
+                    .refillIntervally(10, Duration.ofMinutes(1))
                     .build();
-            case DEFAULT -> Bucket.builder()
-                    .addLimit(Bandwidth.classic(60, Refill.intervally(60, Duration.ofMinutes(1))))
+
+            case DEFAULT -> Bandwidth.builder()
+                    .capacity(60)
+                    .refillIntervally(60, Duration.ofMinutes(1))
                     .build();
         };
+
+        return BucketConfiguration.builder()
+                .addLimit(limit)
+                .build();
     }
 
     public enum RateLimitType {

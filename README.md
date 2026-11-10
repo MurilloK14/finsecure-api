@@ -4,6 +4,7 @@
 ![Java 21](https://img.shields.io/badge/Java-21-orange?style=for-the-badge&logo=openjdk)
 ![Spring Boot 3.4](https://img.shields.io/badge/Spring%20Boot-3.4.4-brightgreen?style=for-the-badge&logo=springboot)
 ![PostgreSQL 17](https://img.shields.io/badge/PostgreSQL-17-blue?style=for-the-badge&logo=postgresql)
+![Redis](https://img.shields.io/badge/Redis-7-DC382D?style=for-the-badge&logo=redis&logoColor=white)
 ![RabbitMQ](https://img.shields.io/badge/RabbitMQ-3.13-FF6600?style=for-the-badge&logo=rabbitmq&logoColor=white)
 ![Bucket4j](https://img.shields.io/badge/Bucket4j-Rate%20Limiting-red?style=for-the-badge)
 ![Prometheus](https://img.shields.io/badge/Prometheus-E6522C?style=for-the-badge&logo=prometheus&logoColor=white)
@@ -12,7 +13,7 @@
 ![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)
 
 > **FinSecure API** é uma engine de pagamentos e carteira digital de alta concorrência desenvolvida sob os padrões mais rigorosos do mercado financeiro e de segurança de aplicações (**AppSec**). 
-> O sistema implementa garantias estritas de transações **ACID**, prevenção contra **Double Spending (Race Conditions)**, imunidade matemática a **Deadlocks**, proteção contra ataques de repetição via **Idempotência**, segurança **Stateless com JWT**, **Trilha de Auditoria Imutável**, e uma **Arquitetura Orientada a Eventos (EDA)** desacoplada com **RabbitMQ** e resiliência via **Dead Letter Queue (DLQ)**.
+> O sistema implementa garantias estritas de transações **ACID**, prevenção contra **Double Spending (Race Conditions)**, imunidade matemática a **Deadlocks**, proteção contra ataques de repetição via **Idempotência**, segurança **Stateless com JWT**, **Trilha de Auditoria Imutável**, **Arquitetura Orientada a Eventos (EDA)** com **RabbitMQ + DLQ**, **Cache & Rate Limiting Distribuído com Redis** e observabilidade em tempo real com **Prometheus & Grafana**.
 
 ---
 
@@ -98,11 +99,21 @@ Para garantir alta disponibilidade e tempos de resposta na ordem de milissegundo
 
 ## 🛡️ Segurança de Aplicações (AppSec) & Validações
 
-* **Rate Limiting & Defesa contra Brute-Force / DoS (Token Bucket):** Implementação lock-free de alto desempenho com **Bucket4j** integrada à `SecurityFilterChain` (`RateLimitFilter`). Protege endpoints críticos de autenticação contra ataques de força bruta e exaustão de CPU por BCrypt (limite estrito de 5 req/min por IP em `/auth/login`), e blinda transferências contra abusos (10 req/min por usuário autenticado), retornando `HTTP 429 Too Many Requests` com cabeçalho `Retry-After` e payload explicativo.
+* **Rate Limiting Distribuído & Defesa contra Brute-Force / DoS (Token Bucket + Redis):** Implementação atômica com **Bucket4j + Lettuce (`ProxyManager` no Redis)** integrada à `SecurityFilterChain` (`RateLimitFilter`). Como o estado dos tokens fica centralizado no Redis via *Compare-And-Swap (CAS)* com auto-expiração (TTL), múltiplas réplicas da API compartilham os mesmos limites (impedindo bypass em escalabilidade horizontal e evitando *memory leak* na JVM). Protege endpoints críticos de autenticação (5 req/min por IP em `/auth/login`) e transferências (10 req/min por usuário autenticado), retornando `HTTP 429 Too Many Requests` com cabeçalho `Retry-After` e payload explicativo.
 * **Prevenção contra IDOR (Insecure Direct Object Reference):** O ID da carteira de origem **nunca** é enviado no corpo da requisição. O sistema recupera a identidade autenticada diretamente do token criptográfico (`@AuthenticationPrincipal User currentUser`), impedindo que um invasor debite da carteira de terceiros.
 * **Validação Criptográfica e Pure CPU Modulo 11:** Anotação personalizada `@CpfOrCnpj` com validador estrito dos dígitos verificadores via Algoritmo Módulo 11, rejeitando entradas malformadas antes de tocar o banco de dados.
 * **Autenticação Stateless (JWT):** Assinatura HMAC-SHA256 (`jjwt 0.12.6`) com tempo de expiração curto e filtros de segurança (`JwtAuthenticationFilter`) integrados à `SecurityFilterChain` do Spring Security 6.
 * **Trilha de Auditoria Imutável:** Cada movimentação financeira gera um registro na tabela `tb_audit_logs`, gravando IDs envolvidos, valores, timestamps UTC e endereços IP para conformidade e perícia forense.
+
+---
+
+## ⚡ Cache Distribuído & Escalabilidade Stateless (Redis)
+
+Para suportar alto volume de consultas de saldo sem sobrecarregar o PostgreSQL e manter a API preparada para escala horizontal (*stateless*), o **Redis 7** atua tanto como cache distribuído quanto como repositório central de estado:
+
+* **Padrão Cache-Aside (`@Cacheable`):** As leituras de carteira (`GET /api/v1/wallets/me`) consultam primeiro o Redis em complexidade $O(1)$ com TTL de 10 minutos, reduzindo latência e preservando conexões do pool JDBC (HikariCP).
+* **Consistência Financeira Estrita (`@CacheEvict`):** Em toda transferência concluída (`TransferService`), o cache das duas carteiras envolvidas (remetente e destinatário) é imediatamente invalidado via Proxy AOP do Spring, evitando leituras de saldo desatualizado (*stale data*) e race conditions de escrita.
+* **Serialização JSON Segura (AppSec):** Os DTOs em cache utilizam `RedisSerializer.json()` (Jackson) em vez de serialização binária nativa do Java, mitigando riscos de desserialização insegura (`CWE-502`) e facilitando inspeção em tempo real via `redis-cli`.
 
 ---
 
@@ -185,12 +196,13 @@ A saúde, performance e concorrência da aplicação são monitoradas ponta a po
 *(Java 21 e Maven são opcionais caso execute diretamente via Docker!)*
 
 ### 1. Execução Total via Docker Compose (Modo Conteinerizado)
-Suba o ecossistema completo (FinSecure API + PostgreSQL 17 + RabbitMQ 3 + Prometheus + Grafana) com um único comando:
+Suba o ecossistema completo (FinSecure API + PostgreSQL 17 + Redis 7 + RabbitMQ 3 + Prometheus + Grafana) com um único comando:
 ```bash
 docker compose up --build -d
 ```
 * **API & Swagger UI:** `http://localhost:8080/swagger-ui.html`
 * **PostgreSQL:** `localhost:5432` (database: `finsecure_db`)
+* **Redis:** `localhost:6379`
 * **RabbitMQ AMQP:** `localhost:5672`
 * **RabbitMQ Management UI:** `http://localhost:15672` (Usuário: `finsecure_user` | Senha: `finsecure_password`)
 * **Prometheus:** `http://localhost:9090`
@@ -200,7 +212,7 @@ docker compose up --build -d
 Caso deseje depurar e alterar o código localmente no IntelliJ:
 ```bash
 # 1. Inicie apenas a infraestrutura externa
-docker compose up postgres rabbitmq -d
+docker compose up postgres rabbitmq redis -d
 
 # 2. Execute a aplicação via wrapper ou IntelliJ:
 # No Linux/macOS:

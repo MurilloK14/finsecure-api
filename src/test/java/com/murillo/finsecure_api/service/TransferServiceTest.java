@@ -45,6 +45,9 @@ public class TransferServiceTest {
     @Mock
     RabbitTemplate rabbitTemplate;
 
+    @Mock
+    WalletService walletService;
+
     @InjectMocks
     TransferService transferService;
 

@@ -27,15 +27,18 @@ public class TransferService {
     private final AuditLogRepository auditLogRepository;
     private final TransactionalRepository transactionalRepository;
     private final RabbitTemplate rabbitTemplate;
+    private final WalletService walletService;
 
     public TransferService(WalletRepository walletRepository,
                            AuditLogRepository auditLogRepository,
                            TransactionalRepository transactionalRepository,
-                           RabbitTemplate rabbitTemplate) {
+                           RabbitTemplate rabbitTemplate,
+                           WalletService walletService) {
         this.walletRepository = walletRepository;
         this.auditLogRepository = auditLogRepository;
         this.transactionalRepository = transactionalRepository;
         this.rabbitTemplate = rabbitTemplate;
+        this.walletService = walletService;
     }
 
     @Transactional
@@ -108,6 +111,14 @@ public class TransferService {
                 RabbitMQConfig.NOTIFICATION_ROUTING_KEY,
                 notificationEvent
         );
+
+        // Invalidação de Cache Distribuído (Garante consistência imediata de saldo)
+        if (senderWallet.getUser() != null && senderWallet.getUser().getId() != null) {
+            walletService.evictWalletCache(senderWallet.getUser().getId());
+        }
+        if (receiverWallet.getUser() != null && receiverWallet.getUser().getId() != null) {
+            walletService.evictWalletCache(receiverWallet.getUser().getId());
+        }
 
         return new TransferResponseDTO(
                 transaction.getId(),
