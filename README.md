@@ -104,6 +104,7 @@ Para garantir alta disponibilidade e tempos de resposta na ordem de milissegundo
 * **Validação Criptográfica e Pure CPU Modulo 11:** Anotação personalizada `@CpfOrCnpj` com validador estrito dos dígitos verificadores via Algoritmo Módulo 11, rejeitando entradas malformadas antes de tocar o banco de dados.
 * **Autenticação Stateless (JWT):** Assinatura HMAC-SHA256 (`jjwt 0.12.6`) com tempo de expiração curto e filtros de segurança (`JwtAuthenticationFilter`) integrados à `SecurityFilterChain` do Spring Security 6.
 * **Trilha de Auditoria Imutável:** Cada movimentação financeira gera um registro na tabela `tb_audit_logs`, gravando IDs envolvidos, valores, timestamps UTC e endereços IP para conformidade e perícia forense.
+* **DevSecOps Automatizado (Shift-Left Security):** Pipeline CI no GitHub Actions equipada com **Trivy** para auditoria contínua de configurações de segurança no `Dockerfile` e detecção de vulnerabilidades (CVEs) na imagem containerizada e nas dependências, além de configuração externa via variáveis de ambiente (12-Factor App).
 
 ---
 
@@ -230,5 +231,5 @@ A aplicação estará disponível em `http://localhost:8080`.
 
 Desenvolvido por **Murillo Kennedy**  
 Estudante de Ciência da Computação | Foco em Java Backend & Application Security (AppSec)  
-* [LinkedIn](https://www.linkedin.com/in/murillokennedy/)
-* [GitHub](https://github.com/murillokennedy)
+* [LinkedIn](https://www.linkedin.com/in/murillo-kennedy/)
+* [GitHub](https://github.com/MurilloK14)
