@@ -63,7 +63,7 @@ jobs:
         run: chmod +x mvnw
 
       - name: 4. Executar suíte completa de testes automatizados
-        run: ./mvnw clean test
+        run: JWT_SECRET=$(openssl rand -hex 32) ./mvnw clean test
 
       - name: 5. Validar o build da imagem Docker (Multi-Stage)
         run: docker build -t finsecure-api:ci .

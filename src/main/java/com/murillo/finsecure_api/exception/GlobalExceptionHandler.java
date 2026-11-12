@@ -29,7 +29,7 @@ public ResponseEntity<ErrorResponseDTO> illegalArgumentExceptionHandler(IllegalA
 
     String url = request.getRequestURI();
 
-    ErrorResponseDTO corpo = new ErrorResponseDTO(400, "Validanton Error", "Erro de validação nos campos informados", url, errors);
+    ErrorResponseDTO corpo = new ErrorResponseDTO(400, "Validation Error", "Erro de validação nos campos informados", url, errors);
     return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(corpo);
 }
 }

@@ -197,7 +197,11 @@ A saúde, performance e concorrência da aplicação são monitoradas ponta a po
 *(Java 21 e Maven são opcionais caso execute diretamente via Docker!)*
 
 ### 1. Execução Total via Docker Compose (Modo Conteinerizado)
-Suba o ecossistema completo (FinSecure API + PostgreSQL 17 + Redis 7 + RabbitMQ 3 + Prometheus + Grafana) com um único comando:
+Primeiro, crie o seu arquivo `.env` a partir do modelo e configure sua `JWT_SECRET` (ex.: `openssl rand -hex 32`):
+```bash
+cp .env.example .env
+```
+Em seguida, suba o ecossistema completo (FinSecure API + PostgreSQL 17 + Redis 7 + RabbitMQ 3 + Prometheus + Grafana) com um único comando:
 ```bash
 docker compose up --build -d
 ```
